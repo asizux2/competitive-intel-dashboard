@@ -63,8 +63,8 @@ export default function CompetitiveIntelDashboard() {
     async function loadData() {
       try {
         const [resData, resVendors] = await Promise.all([
-          fetch('/data.json').then(r => r.json()),
-          fetch('/vendors_geojson.json').then(r => r.json())
+          fetch('/data.json').then(r => { if (!r.ok) throw new Error(`data.json: ${r.status}`); return r.json(); }),
+          fetch('/vendors_geojson.json').then(r => { if (!r.ok) throw new Error(`vendors_geojson.json: ${r.status}`); return r.json(); }),
         ]);
         setData(resData);
         // Flatten GeoJSON features for the table and charts
@@ -75,7 +75,8 @@ export default function CompetitiveIntelDashboard() {
           lng: f.geometry.coordinates[0],
         })));
       } catch (e) {
-        console.error('Error loading dashboard data:', e);
+        console.error('Dashboard load failed:', e);
+        setData({ _error: e.message || 'Unknown error' }); // Exit infinite loader
       }
     }
     loadData();
@@ -90,7 +91,45 @@ export default function CompetitiveIntelDashboard() {
     return stats;
   }, [vendors]);
 
-  if (!data) return <div style={{ color: T.text, textAlign: 'center', marginTop: '100px' }}>Loading Market Intelligence...</div>;
+  if (!data) return (
+    <div style={{
+      background: '#0A0A0A',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'column',
+      gap: 16,
+    }}>
+      <div style={{
+        width: 48, height: 48, border: '4px solid #1E1E1E',
+        borderTop: '4px solid #1E88E5', borderRadius: '50%',
+        animation: 'spin 1s linear infinite',
+      }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ color: '#9CA3AF', fontSize: '0.9rem' }}>Loading Market Intelligence…</div>
+    </div>
+  );
+
+  if (data._error) return (
+    <div style={{
+      background: '#0A0A0A',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'column',
+      gap: 12,
+    }}>
+      <div style={{ fontSize: '2rem' }}>⚠️</div>
+      <div style={{ color: '#F5F5F5', fontWeight: 700, fontSize: '1.1rem' }}>Data failed to load</div>
+      <div style={{ color: '#9CA3AF', fontSize: '0.8rem', maxWidth: 400, textAlign: 'center' }}>{data._error}</div>
+      <button onClick={() => window.location.reload()}
+        style={{ marginTop: 8, padding: '8px 20px', background: '#1E88E5', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+        Retry
+      </button>
+    </div>
+  );
 
   const tabs = [
     { id: 'overview', label: 'Market Overview', icon: '📊' },
